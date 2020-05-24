@@ -136,3 +136,33 @@ confmat3 = table(Predicted= fitted.results3,Actual=p_test$Churn)
 confmat3
 confusionMatrix(confmat3,positive="1",mode="everything")
 
+
+#Trying SMOTE
+df$Churn <- as.factor(df$Churn)
+balanced.df <- SMOTE(Churn~., df, perc.over=200,
+                     perc.under=200)
+df4 <- balanced.df[,-c(5,9)]
+set.seed(100)
+sample<-sample.split(df4,SplitRatio = 0.7)
+p_train<-subset(df4,sample==TRUE)
+p_test<-subset(df4,sample==FALSE)
+
+model4 <- glm(p_train$Churn~., data =p_train, family = "binomial")
+print(summary(model4))
+varImp(model4)
+
+vif(model4)
+
+
+predict4 <- predict(model4,newdata=p_test,type='response')
+predict4
+fitted.results4 <- ifelse(predict4>0.2,1,0)
+
+median(predict4)
+
+confmat4 = table(Predicted= fitted.results4,Actual=p_test$Churn)
+confmat4
+confusionMatrix(confmat4,positive="1",mode="everything")
+
+
+
