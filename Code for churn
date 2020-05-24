@@ -1,0 +1,138 @@
+
+library(car)
+library(funModeling) 
+library(tidyverse) 
+library(caret)
+library(caTools)
+library(lmtest)
+library(clv)
+library(corrplot)
+library(pROC)
+
+df <- read.table(file = "clipboard", sep = "\t", header = TRUE)
+summary(df)
+str(df)
+nas=sapply(df, function(x) sum(is.na(x)))
+nas
+profiling_num(df)
+plot_num(df)
+
+cormatrix <- cor(df)
+corrplot(cormatrix, main="\nCorrelation Plot")
+
+#How many customers churn?
+ggplot(df, aes(x = Churn))+
+  geom_histogram(stat = "count", fill = c("sky blue", "orange"))
+
+c = lapply(df, function(x){ length(which(x==1))/length(x)})
+c
+
+ggplot(df, aes(x = DataPlan))+
+  geom_histogram(stat = "count", fill = c("sky blue", "orange"))
+
+#when do customers churn?
+
+df %>% filter(df$Churn == 1) %>% 
+  ggplot( aes(x=  AccountWeeks))+
+  geom_bar(fill = "orange" )
+
+
+
+
+#running logistic regression anyway to check accuracy
+#split data
+set.seed(100)
+sample<-sample.split(df,SplitRatio = 0.7)
+p_train<-subset(df,sample==TRUE)
+p_test<-subset(df,sample==FALSE)
+ 
+model1 <- glm(p_train$Churn~., data =p_train, family = "binomial")
+print(summary(model1))
+varImp(model1)
+
+#data has multicollinearity
+vif(model1)
+
+
+predict1 <- predict(model1,newdata=p_test,type='response')
+predict1
+fitted.results1 <- ifelse(predict1> 0.5,1,0)
+confmat1 = table(Predicted= fitted.results1,Actual=p_test$Churn)
+confmat1
+
+
+#precission
+confusionMatrix(confmat1,positive="1",mode="everything")
+
+#Since we care about customers who have cancelled service
+#in our case those are 1 
+
+#We need higher precision than 0.47
+
+#Tuning the model with dropping data usage
+
+df2 <- df[,-5]
+
+set.seed(100)
+sample<-sample.split(df2,SplitRatio = 0.7)
+p_train<-subset(df2,sample==TRUE)
+p_test<-subset(df2,sample==FALSE)
+
+model2 <- glm(p_train$Churn~., data =p_train, family = "binomial")
+print(summary(model2))
+varImp(model2)
+
+#data has multicollinearity
+vif(model2)
+
+
+predict2 <- predict(model2,newdata=p_test,type='response')
+predict2
+fitted.results2 <- ifelse(predict2> 0.5,1,0)
+confmat2 = table(Predicted= fitted.results2,Actual=p_test$Churn)
+confmat2
+
+
+#precission
+confusionMatrix(confmat2,positive="1",mode="everything")
+
+#Tuning the model with dropping data usage and monthly charge
+
+df3 <- df[,-c(5,9)]
+set.seed(100)
+sample<-sample.split(df3,SplitRatio = 0.7)
+p_train<-subset(df3,sample==TRUE)
+p_test<-subset(df3,sample==FALSE)
+
+model3 <- glm(p_train$Churn~., data =p_train, family = "binomial")
+print(summary(model3))
+varImp(model3)
+
+vif(model3)
+
+
+predict3 <- predict(model3,newdata=p_test,type='response')
+predict3
+fitted.results3 <- ifelse(predict3>0.5,1,0)
+
+median(predict3)
+
+confmat3 = table(Predicted= fitted.results3,Actual=p_test$Churn)
+confmat3
+confusionMatrix(confmat3,positive="1",mode="everything")
+
+par(pty = 's')
+
+roc(p_test$Churn,fitted.results3,plot=TRUE, legacy.axes = TRUE,xlab="False Positive Ratio", ylab="True Postive Ratio", col="#377eb8", lwd=4)
+
+#Changing thershold to 0.2
+
+predict3 <- predict(model3,newdata=p_test,type='response')
+predict3
+fitted.results3 <- ifelse(predict3>0.2,1,0)
+
+
+confmat3 = table(Predicted= fitted.results3,Actual=p_test$Churn)
+confmat3
+confusionMatrix(confmat3,positive="1",mode="everything")
+
